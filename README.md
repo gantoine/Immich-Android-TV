@@ -18,6 +18,31 @@ standard Immich Android TV app it includes:
 > **system app**. It reads the native `gpio_jni` library and only activates when `/etc/nix.model`
 > exists; otherwise it falls back gracefully.
 
+### Building the release APK
+
+The release build is signed with a keystore. The signing config reads these environment
+variables (each falls back to an unusable dummy default, so set them explicitly):
+
+```bash
+# One-time: generate a self-signed keystore. Since the app is installed as a system app,
+# the signing identity does not need to match anything — any key works.
+keytool -genkeypair -v -keystore app/keystore -alias immich -keyalg RSA -keysize 2048 \
+  -validity 10000 -storepass immixframe -keypass immixframe \
+  -dname "CN=Immix Frame, OU=Dev, O=Immix"
+
+# Build the signed release APK
+RELEASE_KEYSTORE_PATH="$(pwd)/app/keystore" \
+RELEASE_KEYSTORE_PASSWORD=immixframe \
+RELEASE_KEY_ALIAS=immich \
+RELEASE_KEY_PASSWORD=immixframe \
+  ./gradlew assembleRelease
+```
+
+The signed APK is written to `app/build/outputs/apk/release/ImmichTV-<version>.apk`.
+
+> Keep `app/keystore` out of version control (it is gitignored). The keystore password must be
+> at least 6 characters — the built-in `dummy` fallback is too short and will fail to sign.
+
 ### Installing on the frame (W10E model example)
 
 > Disclaimer: improper handling or software errors may damage your device. You alone are
@@ -37,7 +62,8 @@ standard Immich Android TV app it includes:
    ```
 3. Install the app as a system app:
    ```bash
-   adb root && adb remount && adb push app-release.apk /system/app/immich.apk && adb reboot
+   adb root && adb remount && \
+   adb push app/build/outputs/apk/release/ImmichTV-*.apk /system/app/immich.apk && adb reboot
    ```
 4. Set up your credentials. You can mirror the screen with [scrcpy](https://github.com/Genymobile/scrcpy),
    or send the host via adb (`adb shell input text https://demo.immich.app`).
