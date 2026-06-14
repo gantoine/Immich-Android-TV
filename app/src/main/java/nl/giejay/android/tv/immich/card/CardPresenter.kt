@@ -1,4 +1,5 @@
 package nl.giejay.android.tv.immich.card
+import androidx.core.content.ContextCompat
 
 import android.app.Activity
 import android.content.Context
@@ -82,7 +83,7 @@ open class CardPresenter(context: Context, style: Int = R.style.DefaultCardTheme
 
     private fun setSelected(imageCardView: ImageCardView, selected: Boolean) {
         if(selected){
-            imageCardView.mainImageView!!.background = context.getDrawable(R.drawable.border)
+            imageCardView.mainImageView!!.background = ContextCompat.getDrawable(context, R.drawable.border)
         } else {
             imageCardView.mainImageView!!.background = null
         }

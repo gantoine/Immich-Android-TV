@@ -1,4 +1,5 @@
 package nl.giejay.android.tv.immich.shared.donate
+import androidx.core.content.ContextCompat
 
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -18,7 +19,7 @@ import java.lang.IllegalStateException
 class DonateFragment : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
-        val icon: Drawable = requireContext().getDrawable(R.drawable.icon)!!
+        val icon: Drawable = ContextCompat.getDrawable(requireContext(), R.drawable.icon)!!
         return GuidanceStylist.Guidance(
             getString(R.string.donation_title),
             getString(R.string.donation_unavailable),

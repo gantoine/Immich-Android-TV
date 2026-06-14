@@ -8,7 +8,9 @@ public class PowerUtils {
     private final PowerManager powerManager;
 
     public PowerUtils(Context context) {
-        powerManager = context.getSystemService(PowerManager.class);
+        // Use the String-based overload: getSystemService(Class) is API 23+ and crashes on
+        // API 19 (KitKat) with NoSuchMethodError.
+        powerManager = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.SCREEN_BRIGHT_WAKE_LOCK | PowerManager.ACQUIRE_CAUSES_WAKEUP, "Immich:PowerUtils");
         wakeUp();
     }

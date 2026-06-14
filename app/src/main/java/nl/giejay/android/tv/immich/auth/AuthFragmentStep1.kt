@@ -1,4 +1,5 @@
 package nl.giejay.android.tv.immich.auth
+import androidx.core.content.ContextCompat
 
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -21,7 +22,7 @@ class AuthFragmentStep1 : GuidedStepSupportFragment() {
 
     override fun onCreateGuidance(savedInstanceState: Bundle?): GuidanceStylist.Guidance {
         val icon: Drawable =
-            requireContext().getDrawable(R.drawable.icon)!!
+            ContextCompat.getDrawable(requireContext(), R.drawable.icon)!!
         return GuidanceStylist.Guidance(
             getString(R.string.app_name) + " (${BuildConfig.VERSION_NAME})",
             getString(R.string.login_immich_description),
