@@ -1,31 +1,55 @@
-# Immich Android TV
+# Immich Android TV — Nixplay frame / Android 4.4 fork
 
-## Nixplay frame build
+A fork of [Immich Android TV](https://github.com/giejay/Immich-Android-TV) that runs on
+[Nixplay](https://www.nixplay.com/) digital photo frames, **including older models still on
+Android 4.4 (KitKat / API 19)**. It builds on the standard app plus the frame work from
+[smerschjohann/Immix](https://github.com/smerschjohann/Immix).
 
-This build adds support for running on a [Nixplay](https://www.nixplay.com/) digital photo frame
-(based on work from [smerschjohann/Immix](https://github.com/smerschjohann/Immix)). On top of the
-standard Immich Android TV app it includes:
+If you have a newer frame or any Android TV device on **API 21+**, the upstream app works as-is and
+most of this README's frame-specific caveats don't apply to you.
 
-- A motion sensor that turns the display on/off. The idle timeout is configured under
-  **Settings → View Settings → WakeLock** (default: 15 minutes, or "Always on" to never sleep).
-  On non-Nixplay hardware the sensor reports "always active", so the display is never turned off.
-- The remote's **POWER** button (or `F1`) toggles the screen on/off.
-- The app registers as a HOME/launcher app so the frame can boot straight into it.
-- Firebase (Crashlytics/Analytics) and Google Cast are removed, so the app builds without a
-  `google-services.json` and does not depend on Google Play Services.
+## What this fork adds
 
-> Note: the motion sensor needs access to the frame's GPIO, so the app must be installed as a
-> **system app**. It reads the native `gpio_jni` library and only activates when `/etc/nix.model`
-> exists; otherwise it falls back gracefully.
+- **Runs on Android 4.4 (API 19).** Older frames (e.g. the `w10a6`, on Android 4.4.4) can't install
+  the stock app, which requires API 24. This fork lowers `minSdk` to 19 and ports everything that
+  required a newer OS: legacy ExoPlayer 2.x for video, OkHttp 3.12 + a TLS 1.2 socket factory,
+  AndroidX downgrades, legacy multidex, and assorted KitKat runtime fixes.
+- **Frame integration:**
+  - A motion sensor turns the display on/off. Idle timeout is under
+    **Settings → View Settings → WakeLock** (default 15 min, or "Always on"). On non-Nixplay
+    hardware the sensor reports "always active" so the screen never sleeps.
+  - The remote's **POWER** button (or `F1`) toggles the screen.
+  - The app registers as a **HOME / launcher** app so the frame boots straight into it.
+- **No Google dependencies.** Firebase (Crashlytics/Analytics), Google Cast, Play Billing
+  (donations) and Play Services auth are removed, so it builds without `google-services.json` and
+  runs on frames that have no Google Play Services.
 
-### Building the release APK
+> The motion sensor needs the frame's GPIO, so the app must be installed as a **system app**. It
+> reads the native `gpio_jni` library and only activates when `/etc/nix.model` exists; otherwise it
+> falls back gracefully.
 
-The release build is signed with a keystore. The signing config reads these environment
-variables (each falls back to an unusable dummy default, so set them explicitly):
+## Know your frame first
+
+Frame models run different Android versions, and that changes everything below. Check yours:
 
 ```bash
-# One-time: generate a self-signed keystore. Since the app is installed as a system app,
-# the signing identity does not need to match anything — any key works.
+adb connect <frame-ip>:5555           # or :6666 once you've set the custom port (see below)
+adb shell getprop ro.build.version.release   # e.g. 4.4.4
+adb shell getprop ro.build.version.sdk       # e.g. 19  -> KitKat, all caveats apply
+adb shell getprop ro.product.model           # e.g. w10a6
+```
+
+If `sdk` is **19 or 20**, read the [Networking & TLS](#networking--tls-on-android-44-frames)
+section before anything else — it's the single most likely thing to block you.
+
+## Building the release APK
+
+The release build is signed with a keystore, read from these environment variables (each has an
+unusable dummy default, so set them explicitly):
+
+```bash
+# One-time: generate a self-signed keystore. The app is a system app, so the signing identity
+# doesn't need to match anything — any key works. Password must be at least 6 characters.
 keytool -genkeypair -v -keystore app/keystore -alias immich -keyalg RSA -keysize 2048 \
   -validity 10000 -storepass immixframe -keypass immixframe \
   -dname "CN=Immix Frame, OU=Dev, O=Immix"
@@ -38,100 +62,183 @@ RELEASE_KEY_PASSWORD=immixframe \
   ./gradlew assembleRelease
 ```
 
-The signed APK is written to `app/build/outputs/apk/release/ImmichTV-<version>.apk`.
+The signed APK lands at `app/build/outputs/apk/release/ImmichTV-<version>.apk`. `app/keystore` is
+gitignored — keep it out of version control.
 
-> Keep `app/keystore` out of version control (it is gitignored). The keystore password must be
-> at least 6 characters — the built-in `dummy` fallback is too short and will fail to sign.
+No `google-services.json` or `strings_other.xml` is needed (this fork removed those dependencies).
 
-### Installing on the frame (W10E model example)
+## Installing on the frame
 
 > Disclaimer: improper handling or software errors may damage your device. You alone are
 > responsible for any damage to hardware or software.
 
-1. Disable the original software:
-   ```bash
-   adb shell
-   $ su
-   $ pm disable com.kitesystems.nix.prod & pm disable com.kitesystems.nix.frame
-   ```
-2. Enable ADB over the network so you can reach the device later without opening the frame:
-   ```bash
-   adb shell
-   $ su
-   $ setprop persist.adb.tcp.port 6666
-   ```
-3. Install the app as a system app:
-   ```bash
-   adb root && adb remount && \
-   adb push app/build/outputs/apk/release/ImmichTV-*.apk /system/app/immich.apk && adb reboot
-   ```
-4. Set up your credentials. You can mirror the screen with [scrcpy](https://github.com/Genymobile/scrcpy),
-   or send the host via adb (`adb shell input text https://demo.immich.app`).
-5. Open Android Settings (`adb shell am start -a android.settings.SETTINGS`) and set the display to
-   turn off after the shortest time, or use `adb shell settings put system screen_off_timeout 1`
-   for the minimum.
+### 1. Prepare the frame (one-time)
+
+```bash
+adb shell
+$ su
+# Stop the stock software so Immich can become the HOME app:
+$ pm disable com.kitesystems.nix.prod & pm disable com.kitesystems.nix.frame
+# Keep network adb available across reboots without opening the frame:
+$ setprop persist.adb.tcp.port 6666
+```
+
+### 2. First install — push as a system app
+
+A system-app install is required for the motion sensor's GPIO access and to act as HOME.
+
+```bash
+adb root                              # restarts adbd; the TCP connection drops...
+adb connect <frame-ip>:6666           # ...so reconnect
+adb remount
+adb push app/build/outputs/apk/release/ImmichTV-*.apk /system/app/immich.apk
+adb shell chmod 644 /system/app/immich.apk
+adb reboot
+```
+
+> **Heads-up:** `adb root` always drops a TCP adb connection — reconnect after it. And re-pushing to
+> `/system/app` then rebooting can **wipe the app's data** (your saved login). For that reason, use
+> `install -r` for updates, not another `/system/app` push:
+
+### 3. Updating — `adb install -r` (no reboot, keeps your login)
+
+```bash
+adb install -r app/build/outputs/apk/release/ImmichTV-*.apk
+adb shell am start -n nl.giejay.android.tv.immich/.MainActivity   # relaunch
+```
+
+`install -r` updates the system app in place: it preserves app data, keeps system-app status, and
+needs no reboot. This is the fast iteration loop.
+
+### 4. Point the app at your Immich server
+
+On first launch you'll get the sign-in screen. Enter your **server URL** and an **API key** (see
+[permissions](#required-api-permissions)). On a KitKat frame the URL should almost always be a
+**LAN HTTP** address — see the next section for why.
+
+The on-screen keyboard often doesn't cooperate with frame remotes. You can type via adb instead:
+
+```bash
+adb shell input keyevent 123                          # cursor to end of the focused field
+for i in $(seq 60); do adb shell input keyevent 67; done   # backspace to clear it
+adb shell input text 'http://192.168.1.20:2283'       # type the URL (no spaces)
+```
+
+Or mirror the screen with [scrcpy](https://github.com/Genymobile/scrcpy) and use a real keyboard.
+
+### 5. Display sleep
+
+Set the panel to sleep quickly (the motion sensor / WakeLock handles waking):
+
+```bash
+adb shell settings put system screen_off_timeout 1
+```
+
+## Networking & TLS on Android 4.4 frames
+
+**This is the gotcha that bites everyone with an API-19 frame.** KitKat's TLS stack only offers old
+cipher suites (CBC-SHA1); it has none of the modern AEAD ciphers (AES-GCM, ChaCha20) or TLS 1.3.
+Modern reverse proxies — Let's Encrypt with a Mozilla "intermediate"/"modern" config, Caddy, recent
+nginx, Cloudflare — typically **only** accept those modern ciphers. The result: **the frame and a
+modern HTTPS endpoint share no cipher, and the connection fails** with an SSL handshake error. No
+client-side change can fix that, because API 19 simply doesn't implement the required crypto.
+
+The app does enable TLS 1.2 and every cipher the device supports (it's off by default on KitKat), so
+HTTPS works against servers that still accept a legacy cipher — but most modern setups don't.
+
+**Recommended fix: point the frame at your Immich server's LAN HTTP endpoint**, e.g.
+`http://192.168.1.20:2283` (2283 is Immich's default port). Cleartext HTTP has no TLS to negotiate,
+works reliably on the LAN, and API 19 imposes no cleartext-traffic restriction. This is the simplest
+and most robust option for a frame that lives on the same network as the server.
+
+Check whether your server is reachable over HTTPS from a KitKat client (run from any machine):
+
+```bash
+# If every line says "REJECTED", an API-19 frame cannot reach this server over HTTPS — use LAN HTTP.
+H=photos.example.com
+for c in ECDHE-RSA-AES128-SHA ECDHE-RSA-AES256-SHA AES128-SHA AES256-SHA; do
+  out=$(echo | openssl s_client -connect $H:443 -tls1_2 -cipher $c -servername $H 2>/dev/null \
+        | grep -E 'Cipher *:' | head -1)
+  printf '%-22s %s\n' "$c" "${out:-REJECTED}"
+done
+```
+
+Alternatives if you must use HTTPS: serve a legacy-cipher endpoint for the frame on a separate
+hostname, or front Immich with a LAN-only reverse proxy that offers a KitKat-compatible cipher.
+
+## Required API permissions
+
+Create an API key in Immich (Account Settings → API Keys) with these permissions:
+
+- `album.read` – album information
+- `album.download` – album content
+- `activity.read` – activity data
+- `asset.read` – asset metadata
+- `asset.view` – view assets (photos/videos)
+- `asset.download` – download assets for viewing
+- `archive.read` – archived items
+- `face.read` – face detection data
+- `folder.read` – folder view (the **Folders** screen 403s without this)
+- `library.read` – library information
+- `timeline.read` – timeline data
+- `memory.read` – memory/moment data
+- `partner.read` – partner sharing data
+- `person.read` – people data
+- `session.read` – session information
+- `tag.read` / `tag.asset` – tag information and asset associations
+
+You can edit an existing key to add a missing permission (e.g. `folder.read`) without recreating it.
+
+## Known limitations on Android 4.4 frames
+
+- **HTTPS to modern servers won't work** — use a LAN HTTP endpoint (see above).
+- **Video playback is hardware-decode only.** The media3 FFmpeg software-decoder extension can't run
+  on KitKat and was dropped; playback uses legacy ExoPlayer 2.x with the frame's hardware decoders,
+  so exotic codecs may not play.
+- **No donations / Play Billing** (removed; the frame has no Google Play).
+
+## Debugging crashes on the frame
+
+Release builds **do not plant Timber**, so the app's own logs are silent. To diagnose:
+
+```bash
+# Live crash stack:
+adb logcat AndroidRuntime:E '*:S'
+
+# Full trace (incl. the root "Caused by") survives in Android's DropBox even when the deep
+# stack is truncated in logcat. Entries are gzipped:
+adb shell 'ls /data/system/dropbox/' | grep crash | sort | tail -1     # newest entry
+adb shell cp /data/system/dropbox/<entry>.txt.gz /data/local/tmp/c.gz
+adb pull /data/local/tmp/c.gz /tmp/c.gz && gunzip -f /tmp/c.gz && less /tmp/c
+```
+
+> The KitKat shell is minimal — `pidof`, `sed`, `head`, `curl` and friends are absent. Pipe to your
+> host machine for filtering, and `adb pull` (binary-safe) rather than `cat` for gzipped files.
 
 ---
 
-Immich is a self hosted backup solution for photos and videos. Current features include:
+## About Immich
 
-- Upload and view videos and photos
-- Auto backup when the app is opened
-- Selective album(s) for backup
-- Multi-user support
-- Album and Shared albums
+Immich is a self-hosted backup solution for photos and videos: https://github.com/immich-app/immich
 
-More info here: https://github.com/immich-app/immich
+This Android TV app views those photos/videos. Features:
 
-This Android TV app will allow you to view those uploaded photos and videos. Current features
-include:
-
-| Features                                                                       | Status |
-|:-------------------------------------------------------------------------------|--------|
-| Sign in by phone (https://github.com/giejay/Immich-Android-TV-Authentication)  | Done   |
-| Sign in by entering API key                                                    | Done   |
-| Demo environment                                                               | Done   |
-| Album fetching + Lazy loading                                                  | Done   |
-| Showing the photos inside an album                                             | Done   |
-| Showing people, random, recent or seasonal photos                              | Done   |
-| Slideshow of the photos and videos with a configured interval                  | Done   |
-| Setting the app as the screensaver                                             | Done   |
-| Setting the albums to show in the screensaver                                  | Done   |
-| Configure the interval of the screensaver                                      | Done   |
-| Add generic sorting of albums and photos                                       | Done   |
-| Add sorting for specific album (select last item in row and press right again) | Done   |
-| Showing the 4K thumbnail instead of the full image to speed up loading         | Done   |
-| Showing the EXIF data and improving the slideshow view                         | Done   |
-| Configure whether to play sound with videos                                    | Done   |
-| Smarter merging of portrait photos (same people, same date, same city)         | Todo   |
-| Add transitions to slideshow                                                   | Todo   |
-| Add places/tags view                                                           | Todo   |
-| Add background media playing info to screensaver                               | Todo   |
-| Casting capabilities                                                           | Todo   |
-| Searching in and for albums                                                    | Todo   |
-| Dependency injection with Hilt/Dagger                                          | Todo   |
-
-## Required API Permissions
-
-When setting up your API key in Immich, make sure to grant the following permissions for the app to function properly:
-
-- `album.read` - Read album information
-- `activity.read` - Read activity data
-- `asset.read` - Read asset metadata
-- `asset.view` - View assets (photos/videos)
-- `asset.download` - Download assets for viewing
-- `album.download` - Download album content
-- `archive.read` - Read archived items
-- `face.read` - Read face detection data
-- `folder.read` - Read folder view
-- `library.read` - Read library information
-- `timeline.read` - Read timeline data
-- `memory.read` - Read memory/moment data
-- `partner.read` - Read partner sharing data
-- `person.read` - Read person/people data
-- `session.read` - Read session information
-- `tag.read` - Read tag information
-- `tag.asset` - Read asset tag associations
+| Feature                                                                        | Status            |
+|:-------------------------------------------------------------------------------|-------------------|
+| Sign in by entering API key                                                    | Done              |
+| Album fetching + lazy loading                                                  | Done              |
+| Showing the photos inside an album                                             | Done              |
+| Showing people, random, recent or seasonal photos                              | Done              |
+| Folder view                                                                    | Done              |
+| Slideshow of photos and videos with a configured interval                      | Done              |
+| Setting the app as the screensaver + choosing albums/interval                  | Done              |
+| Generic sorting of albums and photos                                           | Done              |
+| Per-album sorting (select last item in row and press right again)              | Done              |
+| HD-thumbnail mode to speed up loading                                          | Done              |
+| EXIF metadata overlay in the slideshow                                         | Done              |
+| Configure whether to play sound with videos                                    | Done              |
+| Sign in by phone / demo environment                                            | Removed (fork)    |
+| Casting                                                                        | Removed (fork)    |
 
 ## Screenshots
 
@@ -141,37 +248,22 @@ When setting up your API key in Immich, make sure to grant the following permiss
 |         ![Alt text](/screenshots/home-edit.png?raw=true "Edit homescreen")         | ![Alt text](/screenshots/settings-view.png?raw=true "View settings") | ![Alt text](/screenshots/settings-screensaver.png?raw=true "Screensaver settings") |
 | ![Alt text](/screenshots/screensaver-portrait.png?raw=true "Screensaver portrait") |        ![Alt text](/screenshots/people.png?raw=true "People")        |             ![Alt text](/screenshots/seasonl.png?raw=true "Seasonal")              |
 
-## Build steps
-
-1. Clone project with `git clone --recurse git@github.com:giejay/Immich-Android-TV.git`
-2. Create an account at firebase and create a google-services.json file, or
-   `cp apps/google-services.example apps/google-services.json`
-3. copy app/src/strings_other.xml.example to app/src/main/res/values/strings_other.xml and modify
-   the address and API keys for your demo server.
-4. Build apk with `./gradlew assembleRelease`
-
-## Support the project
-
-You can support the project in several ways. The first one is by creating nice descriptive bug
-reports if you find any: https://github.com/giejay/Immich-Android-TV/issues/new/choose.
-<br><br>Even better is creating a PR: https://github.com/giejay/Immich-Android-TV/pulls.
-<br><br>
-Lastly, if you feel this Android TV app is a useful addition to the already great Immich app, you
-might consider buying me a coffee or a beer:
-
-[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/giejay)
-
 ## FAQ
 
-#### I'n not able to set the app as a screensaver
+#### Setting the app as a screensaver
 
-1. Enable development mode on the device (click the build number or "Android TV OS Build" 7 times in
-   the System->About settings).
-2. Go to System -> Developer Options and enable USB Debugging.
-3. If you don't have ADB installed on your PC, follow these
-   instructions: https://www.xda-developers.com/install-adb-windows-macos-linux/
-4. After downloading/installing ADB on the PC, connect to the device using it's IP: adb connect
-   192.168.xx.xx.
-5. Once you are connected, execute the following command: 'adb shell settings put secure
-   screensaver_components nl.giejay.android.tv.immich/.screensaver.ScreenSaverService'
-6. Done!
+```bash
+adb connect <frame-ip>:6666
+adb shell settings put secure screensaver_components \
+  nl.giejay.android.tv.immich/.screensaver.ScreenSaverService
+```
+
+On a regular Android TV device, first enable Developer Options (click the build number 7×) and USB
+debugging, then run the same command.
+
+## Credits & support
+
+Built on [giejay/Immich-Android-TV](https://github.com/giejay/Immich-Android-TV) and the frame work
+in [smerschjohann/Immix](https://github.com/smerschjohann/Immix). Please support the upstream author:
+
+[!["Buy Me A Coffee"](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/giejay)
