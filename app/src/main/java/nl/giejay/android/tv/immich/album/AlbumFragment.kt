@@ -4,6 +4,9 @@ import android.os.Bundle
 import android.view.View
 import androidx.navigation.fragment.findNavController
 import arrow.core.Either
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import nl.giejay.android.tv.immich.api.ApiClient
 import nl.giejay.android.tv.immich.api.model.Album
 import nl.giejay.android.tv.immich.api.util.ApiUtil
@@ -12,6 +15,7 @@ import nl.giejay.android.tv.immich.home.HomeFragmentDirections
 import nl.giejay.android.tv.immich.shared.fragment.VerticalCardGridFragment
 import nl.giejay.android.tv.immich.shared.prefs.ALBUMS_SORTING
 import nl.giejay.android.tv.immich.shared.prefs.EXCLUDE_ASSETS_IN_ALBUM
+import nl.giejay.android.tv.immich.shared.prefs.LAST_SELECTED_ALBUM
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.prefs.SCREENSAVER_ALBUMS
 import nl.giejay.android.tv.immich.shared.prefs.StringSetPref
@@ -41,6 +45,29 @@ class AlbumFragment : VerticalCardGridFragment<Album>() {
         }
         PreferenceManager.subscribe(ALBUMS_SORTING) {
             resortItems()
+        }
+        if (!selectionMode) {
+            seedBackgroundFromLastAlbum()
+        }
+    }
+
+    // On launch the grid auto-selects the first album and shows its thumbnail as the background.
+    // Override that with a random photo from the album the user last opened, if any.
+    private fun seedBackgroundFromLastAlbum() {
+        val lastAlbumId = PreferenceManager.get(LAST_SELECTED_ALBUM)
+        if (lastAlbumId.isBlank()) {
+            return
+        }
+        ioScope.launch {
+            apiClient.listAssetsFromAlbum(lastAlbumId).map { details ->
+                details.assets.filter { it.type == "IMAGE" }.randomOrNull()?.let { asset ->
+                    withContext(Dispatchers.Main) {
+                        if (isAdded) {
+                            setBackgroundImage(ApiUtil.getThumbnailUrl(asset.id, "preview"))
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -82,6 +109,8 @@ class AlbumFragment : VerticalCardGridFragment<Album>() {
     }
 
     override fun onItemClicked(card: Card) {
+        // Remember which album was opened so the next launch can seed the background from it.
+        PreferenceManager.save(LAST_SELECTED_ALBUM, card.id)
         findNavController().navigate(
             HomeFragmentDirections.actionHomeFragmentToAlbumDetailsFragment(
                 card.id,

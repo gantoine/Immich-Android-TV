@@ -59,6 +59,9 @@ abstract class VerticalCardGridFragment<ITEM> : GridFragment() {
     protected var currentPage: Int = startPage
     protected var allPagesLoaded: Boolean = false
     private var currentLoadingJob: Job? = null
+    // When set (via setBackgroundImage), the first/index-0 selection keeps showing this background
+    // instead of the first card's own — used to seed the home background from the last opened album.
+    private var initialBackgroundOverride: String? = null
     protected val selectionMode: Boolean
         get() = arguments?.getBoolean("selectionMode", false) ?: false
     private var currentSelectedIndex: Int = 0
@@ -134,10 +137,17 @@ abstract class VerticalCardGridFragment<ITEM> : GridFragment() {
         setOnItemViewSelectedListener { _, item, _, _ ->
             currentSelectedIndex = adapter.indexOf(item)
             item?.let {
-                loadBackgroundDebounced((it as Card).backgroundUrl) {
-                    loadBackgroundDebounced(it.thumbnailUrl) {
-                        Timber.tag(javaClass.name)
-                            .e("Could not load background url")
+                val override = initialBackgroundOverride
+                if (override != null && currentSelectedIndex <= 0) {
+                    // Keep the seeded "last album" background until the user navigates off the first card.
+                    loadBackgroundDebounced(override) {}
+                } else {
+                    initialBackgroundOverride = null
+                    loadBackgroundDebounced((it as Card).backgroundUrl) {
+                        loadBackgroundDebounced(it.thumbnailUrl) {
+                            Timber.tag(javaClass.name)
+                                .e("Could not load background url")
+                        }
                     }
                 }
             }
@@ -265,7 +275,7 @@ abstract class VerticalCardGridFragment<ITEM> : GridFragment() {
         withContext(Dispatchers.Main) {
             progressBar?.visibility = View.GONE
             setTitle(assets)
-            assets.firstOrNull()?.let { loadBackground(getBackgroundPicture(it)) {} }
+            assets.firstOrNull()?.let { loadBackground(initialBackgroundOverride ?: getBackgroundPicture(it)) {} }
             setDataOnMain(assets)
         }
 
@@ -282,6 +292,18 @@ abstract class VerticalCardGridFragment<ITEM> : GridFragment() {
 
     protected open suspend fun loadData(): Either<String, List<ITEM>> {
         return loadItems(apiClient, currentPage, FETCH_PAGE_COUNT)
+    }
+
+    /**
+     * Seed the background image so it wins over the first card's auto-selected background. Records it as
+     * an override (honored by setupViews and the index-0 selection) and applies it immediately, so the
+     * result is the same regardless of whether this lands before or after the grid's initial selection.
+     */
+    protected fun setBackgroundImage(url: String?) {
+        if (!url.isNullOrEmpty()) {
+            initialBackgroundOverride = url
+            loadBackgroundDebounced(url) {}
+        }
     }
 
     private fun loadBackgroundDebounced(backgroundUrl: String?, onLoadFailed: () -> Unit) {

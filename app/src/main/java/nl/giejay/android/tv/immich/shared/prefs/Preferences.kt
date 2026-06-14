@@ -297,6 +297,11 @@ data object WEATHER_USE_FAHRENHEIT : BooleanPref(false, ImmichApplication.appCon
     override fun key() = "weatherUseFahrenheit"
 }
 
+// internal: id of the album the user last opened (used to seed the home background on launch)
+data object LAST_SELECTED_ALBUM : StringPref("", "", "") {
+    override fun key() = "lastSelectedAlbum"
+}
+
 // seasonal/random/recents
 data object SIMILAR_ASSETS_YEARS_BACK : IntListPref(10,
     ImmichApplication.appContext!!.getString(R.string.seasonal_photos_years_back),
