@@ -1,6 +1,7 @@
 package nl.giejay.android.tv.immich.home
 
 import android.os.Bundle
+import android.util.Log
 import android.view.View
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
@@ -54,7 +55,12 @@ class HomeFragment : BrowseSupportFragment() {
             selectedPosition = row?.let { mRowsAdapter.indexOf(it) } ?: 0
         }
 
+        // Defer past BrowseSupportFragment's own setup: it wires its internal header-click handler
+        // onto the headers fragment after onViewCreated (overwriting ours), and that handler
+        // early-returns for PageRows so the Edit toggle never fires. Setting ours last wins.
+        view.post {
         headersSupportFragment.setOnHeaderClickedListener { _, row ->
+            Log.i("ImmixEdit", "header clicked: '${row.headerItem.name}', editMode(before)=${immichRowPresenter.editMode}")
             if (row.headerItem.name == getString(R.string.edit)) {
                 immichRowPresenter.editMode = !immichRowPresenter.editMode
                 if(immichRowPresenter.editMode){
@@ -64,6 +70,7 @@ class HomeFragment : BrowseSupportFragment() {
                     mRowsAdapter.clear();
                     mRowsAdapter.addAll(0, rows.filter { !PreferenceManager.itemInStringSet(it.headerItem.name, HIDDEN_HOME_ITEMS) })
                 }
+                Log.i("ImmixEdit", "toggled editMode=${immichRowPresenter.editMode}, rows=${mRowsAdapter.size()}")
                 adapter.notifyItemRangeChanged(0, mRowsAdapter.size());
             } else if(immichRowPresenter.editMode){
                 PreferenceManager.toggleStringSetItem(row.headerItem.name, HIDDEN_HOME_ITEMS)
@@ -74,6 +81,7 @@ class HomeFragment : BrowseSupportFragment() {
 //                    this.mainFragment.requireView().requestFocus()
                 }
             }
+        }
         }
     }
 

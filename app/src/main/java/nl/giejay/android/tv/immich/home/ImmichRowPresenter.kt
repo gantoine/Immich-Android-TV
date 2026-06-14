@@ -23,6 +23,7 @@ class ImmichRowPresenter : Presenter() {
     override fun onBindViewHolder(viewHolder: ViewHolder, item: Any?) {
         val headerItem = if (item == null) null else (item as Row).headerItem
         val vh = viewHolder as ImmichRowViewHolder
+        android.util.Log.i("ImmixEdit", "bind header '${headerItem?.name}' editMode=$editMode")
         vh.tvTitle.text = headerItem?.name
 
         if (editMode) {
