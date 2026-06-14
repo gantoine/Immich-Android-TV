@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Overrides androidx.leanback.preference's leanback_preferences_list.xml.
+
+  On Android 4.4 (API 19) the View constructor runs initializeScrollbars ->
+  resolvePadding -> onRtlPropertiesChanged during super-construction, and leanback's
+  BaseGridView.onRtlPropertiesChanged dereferences its layout manager before it is
+  initialized, throwing a NullPointerException (the preferenceFragmentListStyle sets
+  android:scrollbars="vertical"). Setting android:scrollbars="none" directly here
+  overrides the style value so initializeScrollbars is never called. On API 21+ this
+  resolution is deferred, so the upstream layout works there. Scrollbars are unused on
+  a D-pad TV list anyway.
+-->
+<androidx.leanback.widget.VerticalGridView
+    android:id="@+id/list"
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:scrollbars="none"
+    android:transitionGroup="true"
+    style="?attr/preferenceFragmentListStyle" />
