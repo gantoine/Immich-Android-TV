@@ -289,6 +289,14 @@ data object LOAD_BACKGROUND_IMAGE : BooleanPref(true, ImmichApplication.appConte
 data object HIDDEN_HOME_ITEMS : StringSetPref(emptySet(), "", "")
 data object USER_ID : NotUserEditableStringPref(ImmichApplication.appContext!!.getString(R.string.user_id), ImmichApplication.appContext!!.getString(R.string.user_id_desc))
 
+// weather
+data object WEATHER_LOCATION : StringPref("", ImmichApplication.appContext!!.getString(R.string.weather_location), ImmichApplication.appContext!!.getString(R.string.weather_location_desc)) {
+    override fun key() = "weatherLocation"
+}
+data object WEATHER_USE_FAHRENHEIT : BooleanPref(false, ImmichApplication.appContext!!.getString(R.string.weather_use_fahrenheit), ImmichApplication.appContext!!.getString(R.string.weather_use_fahrenheit_desc)) {
+    override fun key() = "weatherUseFahrenheit"
+}
+
 // seasonal/random/recents
 data object SIMILAR_ASSETS_YEARS_BACK : IntListPref(10,
     ImmichApplication.appContext!!.getString(R.string.seasonal_photos_years_back),
@@ -373,6 +381,9 @@ data object ScreensaverPrefScreen : PrefScreen(ImmichApplication.appContext!!.ge
 data object DebugPrefScreen : PrefScreen(ImmichApplication.appContext!!.getString(R.string.debug_settings), "debug", listOf(PrefCategory("", listOf(DEBUG_MODE, USER_ID))), { prefManager ->
     prefManager.findPreference<Preference>(USER_ID.key())?.summary = PreferenceManager.get(USER_ID)
 })
+
+data object WeatherPrefScreen : PrefScreen(ImmichApplication.appContext!!.getString(R.string.weather), "weather",
+    listOf(PrefCategory("", listOf(WEATHER_LOCATION, WEATHER_USE_FAHRENHEIT))))
 
 data class AlbumDetailsSettingsScreen(val albumId: String, val albumName: String) : PrefScreen(ImmichApplication.appContext!!.getString(R.string.settings_for, albumName),
     "album_settings_${albumId}",

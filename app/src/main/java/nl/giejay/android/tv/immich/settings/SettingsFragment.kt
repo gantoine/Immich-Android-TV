@@ -14,6 +14,7 @@ import nl.giejay.android.tv.immich.home.HomeFragmentDirections
 import nl.giejay.android.tv.immich.shared.prefs.DebugPrefScreen
 import nl.giejay.android.tv.immich.shared.prefs.ScreensaverPrefScreen
 import nl.giejay.android.tv.immich.shared.prefs.ViewPrefScreen
+import nl.giejay.android.tv.immich.shared.prefs.WeatherPrefScreen
 
 
 class SettingsFragment : RowsSupportFragment() {
@@ -71,6 +72,17 @@ class SettingsFragment : RowsSupportFragment() {
                         ) {
                             findNavController().navigate(
                                 HomeFragmentDirections.actionGlobalToSettingsDialog(ScreensaverPrefScreen.key)
+                            )
+                        },
+                        SettingsCard(
+                            ImmichApplication.appContext!!.getString(R.string.weather),
+                            null,
+                            "weather",
+                            "ic_weather_partly",
+                            "ic_weather_partly"
+                        ) {
+                            findNavController().navigate(
+                                HomeFragmentDirections.actionGlobalToSettingsDialog(WeatherPrefScreen.key)
                             )
                         },
                         SettingsCard(

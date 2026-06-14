@@ -219,6 +219,17 @@
     <string name="donation_init_failed">Could not initialize donation service, sorry!</string>
     <string name="donation_unavailable">Donations are not available on this device (no Google Play). Thanks for the thought!</string>
 
+    <!-- Weather -->
+    <string name="weather">Weather</string>
+    <string name="weather_location">Location</string>
+    <string name="weather_location_desc">City or place to show the weather for, e.g. Ottawa</string>
+    <string name="weather_use_fahrenheit">Use Fahrenheit</string>
+    <string name="weather_use_fahrenheit_desc">Show temperatures in °F instead of °C</string>
+    <string name="weather_set_location">Set a location in Settings → Weather to show the forecast</string>
+    <string name="weather_loading">Loading weather…</string>
+    <string name="weather_today">Today</string>
+    <string name="weather_error">Could not load weather. Check the location and network.</string>
+
     <!-- Ordering -->
     <string name="order_alphabetically_az">Alphabetically (A-Z)</string>
     <string name="order_alphabetically_za">Alphabetically (Z-A)</string>

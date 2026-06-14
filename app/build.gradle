@@ -36,6 +36,8 @@ android {
         ndk {
             abiFilters 'armeabi-v7a'
         }
+        // Render the weather VectorDrawables on API 19 via the support library.
+        vectorDrawables.useSupportLibrary = true
         versionCode 125
         versionName "3.3"
 

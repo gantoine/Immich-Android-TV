@@ -36,6 +36,7 @@ import nl.giejay.android.tv.immich.shared.fragment.GridFragment
 import nl.giejay.android.tv.immich.shared.prefs.HIDDEN_HOME_ITEMS
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
 import nl.giejay.android.tv.immich.shared.viewmodel.KeyEventsViewModel
+import nl.giejay.android.tv.immich.weather.WeatherFragment
 import timber.log.Timber
 
 class HomeFragment : BrowseSupportFragment() {
@@ -183,6 +184,7 @@ class HomeFragment : BrowseSupportFragment() {
             Header(ImmichApplication.appContext!!.getString(R.string.recent)) { RecentAssetsFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.seasonal)) { SimilarTimeAssetsFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.folders)) { FolderFragment() },
+            Header(ImmichApplication.appContext!!.getString(R.string.weather)) { WeatherFragment() },
             Header(ImmichApplication.appContext!!.getString(R.string.edit)) { GridFragment(hideProgressBar = true) },
             Header(ImmichApplication.appContext!!.getString(R.string.settings)) { SettingsFragment() },
         )
