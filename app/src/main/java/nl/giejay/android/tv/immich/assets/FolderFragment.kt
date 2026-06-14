@@ -21,6 +21,7 @@ import nl.giejay.android.tv.immich.shared.prefs.SLIDER_INTERVAL
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MAX_CUT_OFF_HEIGHT
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MAX_CUT_OFF_WIDTH
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_MERGE_PORTRAIT_PHOTOS
+import nl.giejay.android.tv.immich.shared.prefs.SLIDER_SHUFFLE
 import nl.giejay.android.tv.immich.shared.prefs.SLIDER_ONLY_USE_THUMBNAILS
 import nl.giejay.android.tv.immich.shared.util.toCard
 import nl.giejay.android.tv.immich.shared.util.toSliderItems
@@ -84,7 +85,7 @@ class FolderFragment : VerticalCardGridFragment<Item>() {
             }
         } else {
             val findAllAssets = this.assets.filter { it.item is Asset }.map { it.item as Asset }
-            val sliderItems = findAllAssets.toSliderItems(keepOrder = true, mergePortrait = PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS))
+            val sliderItems = findAllAssets.toSliderItems(keepOrder = !PreferenceManager.get(SLIDER_SHUFFLE), mergePortrait = PreferenceManager.get(SLIDER_MERGE_PORTRAIT_PHOTOS))
             findNavController().navigate(
                 AlbumDetailsFragmentDirections.actionToPhotoSlider(
                     MediaSliderConfiguration(
