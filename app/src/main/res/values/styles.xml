@@ -244,19 +244,20 @@
     </style>
 
     <style name="IconCardImageStyle" parent="Widget.Leanback.ImageCardView.ImageStyle">
-        <item name="android:layout_width">96dp</item>
-        <item name="android:layout_height">96dp</item>
-        <item name="android:padding">16dp</item>
+        <item name="android:layout_width">144dp</item>
+        <item name="android:layout_height">144dp</item>
+        <item name="android:padding">28dp</item>
     </style>
 
     <style name="IconCardTitleStyle" parent="Widget.Leanback.ImageCardView.TitleStyle">
         <item name="android:maxLines">2</item>
         <item name="android:minLines">2</item>
         <item name="android:gravity">center</item>
+        <item name="android:textSize">20sp</item>
     </style>
 
     <style name="IconCardInfoAreaStyle" parent="Widget.Leanback.ImageCardView.InfoAreaStyle">
-        <item name="android:layout_width">96dp</item>
+        <item name="android:layout_width">144dp</item>
         <item name="android:background">@null</item>
         <item name="layout_viewType">main</item>
     </style>

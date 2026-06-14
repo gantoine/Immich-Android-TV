@@ -1,6 +1,7 @@
 package nl.giejay.android.tv.immich.home
 
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.View
 import androidx.core.os.bundleOf
 import androidx.fragment.app.Fragment
@@ -16,6 +17,11 @@ import androidx.leanback.widget.PresenterSelector
 import androidx.leanback.widget.Row
 import androidx.leanback.widget.RowHeaderPresenter
 import androidx.leanback.widget.SectionRow
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.launch
 import nl.giejay.android.tv.immich.ImmichApplication
 import nl.giejay.android.tv.immich.R
 import nl.giejay.android.tv.immich.album.AlbumFragment
@@ -29,6 +35,7 @@ import nl.giejay.android.tv.immich.settings.SettingsFragment
 import nl.giejay.android.tv.immich.shared.fragment.GridFragment
 import nl.giejay.android.tv.immich.shared.prefs.HIDDEN_HOME_ITEMS
 import nl.giejay.android.tv.immich.shared.prefs.PreferenceManager
+import nl.giejay.android.tv.immich.shared.viewmodel.KeyEventsViewModel
 import timber.log.Timber
 
 class HomeFragment : BrowseSupportFragment() {
@@ -80,6 +87,42 @@ class HomeFragment : BrowseSupportFragment() {
             }
         }
         }
+
+        // Jump straight to the Settings row when the remote's SETTINGS button is pressed.
+        val keyEvents = ViewModelProvider(requireActivity())[KeyEventsViewModel::class.java]
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                keyEvents.state.collect { event ->
+                    // The frame's Settings button sends scancode 141 (KEY_SETUP), which is
+                    // unmapped in the keylayout so its keyCode is UNKNOWN — match the scancode too.
+                    if (event != null && event.action == KeyEvent.ACTION_DOWN &&
+                        (event.keyCode == KeyEvent.KEYCODE_SETTINGS || event.scanCode == KEY_SETUP_SCANCODE)) {
+                        jumpToSettings()
+                    }
+                }
+            }
+        }
+    }
+
+    private fun jumpToSettings() {
+        val settingsName = getString(R.string.settings)
+        val index = (0 until mRowsAdapter.size()).firstOrNull {
+            (mRowsAdapter.get(it) as? Row)?.headerItem?.name == settingsName
+        } ?: return
+        if (immichRowPresenter.editMode) {
+            // leave edit mode so the normal Settings row is present
+            immichRowPresenter.editMode = false
+            mRowsAdapter.clear()
+            mRowsAdapter.addAll(0, rows.filter { !PreferenceManager.itemInStringSet(it.headerItem.name, HIDDEN_HOME_ITEMS) })
+            adapter.notifyItemRangeChanged(0, mRowsAdapter.size())
+        }
+        setSelectedPosition(index)
+        // setSelectedPosition only selects the header; move focus into the Settings cards too.
+        view?.post {
+            if (!isInHeadersTransition) {
+                startHeadersTransition(false)
+            }
+        }
     }
 
     private fun setupUi() {
@@ -125,6 +168,9 @@ class HomeFragment : BrowseSupportFragment() {
     }
 
     companion object {
+        // Hardware scancode for the frame remote's Settings button (KEY_SETUP, unmapped in keylayout).
+        private const val KEY_SETUP_SCANCODE = 141
+
         private val HEADERS: List<Header> = listOf(
             Header(ImmichApplication.appContext!!.getString(R.string.albums)) {
                 AlbumFragment().apply {
