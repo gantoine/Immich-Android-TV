@@ -10,6 +10,10 @@
   overrides the style value so initializeScrollbars is never called. On API 21+ this
   resolution is deferred, so the upstream layout works there. Scrollbars are unused on
   a D-pad TV list anyway.
+
+  Do NOT add android:transitionGroup (API 21+) here: AAPT2 would auto-version this file
+  into a -v21 variant, so API 19 would fall back to the library's default (scrollbars on)
+  and crash again. Keeping this attribute-set API-19-clean makes it the default variant.
 -->
 <androidx.leanback.widget.VerticalGridView
     android:id="@+id/list"
@@ -17,5 +21,4 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:scrollbars="none"
-    android:transitionGroup="true"
     style="?attr/preferenceFragmentListStyle" />
